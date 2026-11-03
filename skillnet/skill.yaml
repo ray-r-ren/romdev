@@ -405,7 +405,7 @@ tools:
     name: play_game
     title: Play-test a ROM with button presses
     timeout_s: 600
-    description: "Use to check a game actually plays, after build_and_run_game (pass its state_id) or on an uploaded NES/Game Boy/Genesis ROM: runs a button script in the emulator (e.g. hold Right 60 frames, press A), screenshots each step and makes an animated GIF. For every button step it replays the same frames with no buttons and reports how many pixels the input changed, so you can tell whether the controls work. Can read work-RAM bytes at the end."
+    description: "Use to check a game actually plays, after build_and_run_game (pass its state_id) or on an uploaded NES/Game Boy/Genesis ROM: runs a button script in the emulator (e.g. hold Right 60 frames, press A), screenshots each step and makes an animated GIF. For every button step it replays the same frames with no buttons and reports how many pixels the input changed, so you can tell whether the controls work, and each step's main screen colour (with and without the buttons). Can read work-RAM bytes at the end."
     input_schema:
       type: object
       properties:
@@ -534,6 +534,9 @@ tools:
               - input_effect_pixels
               - effect_region
               - blank
+              - dominant_color
+              - dominant_pct
+              - unique_colors
             properties:
               blank:
                 type: boolean
@@ -547,6 +550,9 @@ tools:
                   type: string
               screenshot:
                 type: string
+              dominant_pct:
+                type: number
+                description: Share of the screen (%) in dominant_color; 100 means one flat colour.
               effect_region:
                 anyOf:
                   - type: array
@@ -554,9 +560,15 @@ tools:
                       type: integer
                   - type: "null"
                 description: "[x, y, w, h] box around the pixels the input changed, at input_effect_at_frame."
+              unique_colors:
+                type: integer
+                description: Distinct colours on the step's last frame.
               changed_pixels:
                 type: integer
                 description: Pixels that differ from the end of the previous step.
+              dominant_color:
+                type: string
+                description: "Most common colour (#rrggbb) on the step's last frame: what the screen mostly looks like."
               input_effect_pixels:
                 anyOf:
                   - type: integer
@@ -568,6 +580,9 @@ tools:
               input_effect_end_pixels:
                 type: integer
                 description: The difference on the step's last frame only. Much smaller than input_effect_pixels means the effect was undone (e.g. the player moved, then died and respawned).
+              no_button_dominant_color:
+                type: string
+                description: "For button steps: the most common colour the same last frame shows with no buttons held, to compare with dominant_color."
             additionalProperties: false
         memory:
           type: array
@@ -769,12 +784,7 @@ tools:
       additionalProperties: false
     state_version: 1
 egress: []
-source:
-  kind: import
-  repo: https://github.com/ray-r-ren/romdev
-  author: ray-r-ren
-  commit: b2ba24481529ba5f80ef0522e593385672bf6fdd
-  license: MIT
+source: null
 cant_do:
   - Consoles other than NES, Game Boy/Color and Genesis (SNES, GBA, Atari, C64, N64, PlayStation… are not installed)
   - Reverse engineering, disassembly, decompilation or static recompilation of existing ROMs
@@ -782,7 +792,6 @@ cant_do:
   - "Live human play in a window: play-testing is scripted button presses with screenshots"
   - Making original pixel art or music from scratch; the agent writes graphics/notes in code
   - Build a real ROM
-  - Play-test in an emulator
 engines: []
 workers: []
 category: creative-media

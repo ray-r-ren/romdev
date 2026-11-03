@@ -7,7 +7,7 @@ from conftest import env, out_path
 from PIL import Image
 from skillnet_sdk import call_tool
 
-from tools.game_tools import build_and_run_game, edit_game_files
+from tools.game_tools import build_and_run_game, edit_game_files, start_game_project
 
 NINTENDO_LOGO = bytes.fromhex(
     "CEED6666CC0D000B03730083000C000D0008111F8889000EDCCC6EE6DDDDD999BBBB67636E0EECCCDDDC999FBBB9333E")
@@ -112,3 +112,26 @@ def test_build_without_project(tmp_path, out_root):
     r = env(call_tool(build_and_run_game, {}, output_root=out_root, state_dir=tmp_path / "none"))
     assert r["status"] == "error" and r["error"]["code"] == "no_project"
     assert "start_game_project" in r["next_step"]
+
+
+def test_game_boy_color_build_is_colour_rom(tmp_path, out_root):
+    st = tmp_path / "state-gbc"
+    start = env(call_tool(start_game_project, {"example": "gbc/puzzle", "name": "gemfall"}, output_root=out_root,
+                          state_dir=st))
+    assert start["status"] == "ok" and start["data"]["platform"] == "gbc", start
+    r = env(call_tool(build_and_run_game, {"frames": 180}, output_root=out_root, state_dir=st))
+    assert r["status"] == "ok", r
+    d = r["data"]
+    assert d["built"] and d["header_ok"] and d["rom"] == "gemfall.gbc"
+    rom = out_path(r, "gemfall.gbc").read_bytes()
+    assert rom[0x104:0x134] == NINTENDO_LOGO
+    assert rom[0x143] in (0x80, 0xC0)  # Game Boy Color flag
+    assert rom[0x134:0x13B] == b"GEMFALL"
+    assert ((rom[0x14E] << 8) | rom[0x14F]) == (sum(rom) - rom[0x14E] - rom[0x14F]) & 0xFFFF
+    shot = out_path(r, "screenshot.png")
+    with Image.open(shot) as im:
+        assert im.size == (160, 144)
+        px = list(im.convert("RGB").getdata())
+    saturated = sum(1 for c in px if max(c) - min(c) >= 60) / len(px)
+    assert saturated > 0.05  # really drawn in colour, not four greys
+    assert d["rendering"]["blank"] is False and d["rendering"]["unique_colors"] > 4

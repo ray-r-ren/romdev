@@ -4,8 +4,8 @@ artifacts = ["/task/outputs", "/task/answer.txt"]
 
 [task]
 name = "skillnet/retro-game-forge-genesis_red_shooter"
-description = "Retro Game Forge — Edit game code: Make me a Sega Genesis (Mega Drive) space shoot-'em-up, but with a red background, like a crimson nebula, instead of the usual blue or purple space."
-keywords = ["skillnet", "retro-game-forge", "edit-game-code"]
+description = "Retro Game Forge — Edit game sources: Make me a Sega Genesis (Mega Drive) space shoot-'em-up, but with a red background, like a crimson nebula, instead of the usual blue or purple space."
+keywords = ["skillnet", "retro-game-forge", "edit-game-sources"]
 
 [[task.authors]]
 name = "SkillNet Agent"
@@ -13,9 +13,9 @@ name = "SkillNet Agent"
 [metadata]
 [metadata.skillnet]
 skill = "retro-game-forge"
-version = 1
+version = 2
 task = "genesis_red_shooter"
-ability = "Edit game code"
+ability = "Edit game sources"
 core = true
 source = "builder"
 judge = "programmatic"

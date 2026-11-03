@@ -108,3 +108,47 @@ def test_script_length_limit(state_copy, out_root):
     st = state_copy("nes")
     r = env(call_tool(play_game, {"steps": [{"buttons": [], "frames": 1800}] * 5}, output_root=out_root, state_dir=st))
     assert r["error"]["code"] == "too_long"
+
+
+def _blink_rom(path):
+    """Tiny hand-assembled Game Boy ROM: writes $A5 to $C000, screen all black, all white while Right is held."""
+    logo = bytes.fromhex("CEED6666CC0D000B03730083000C000D0008111F8889000EDCCC6EE6DDDDD999BBBB67636E0EECCCDDDC999FBBB9333E")
+    rom = bytearray(32768)
+    rom[0x100:0x104] = bytes([0x00, 0xC3, 0x50, 0x01])
+    rom[0x104:0x134] = logo
+    rom[0x134:0x13D] = b"BLINKTEST"
+    code = bytes([0xF3, 0x31, 0xFE, 0xFF, 0x3E, 0xA5, 0xEA, 0x00, 0xC0])  # di; ld sp; ld a,$A5; ld ($C000),a
+    body = bytearray([0x3E, 0x20, 0xE0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xCB, 0x47, 0x28, 0x06,  # read d-pad; bit 0
+                      0x3E, 0xFF, 0xE0, 0x47, 0x18, 0x00,   # BGP=$FF (black); jr loop
+                      0x3E, 0x00, 0xE0, 0x47, 0x18, 0x00])  # BGP=$00 (white); jr loop
+    body[17] = (-(17 + 1)) & 0xFF
+    body[23] = (-(23 + 1)) & 0xFF
+    rom[0x150:0x150 + len(code) + len(body)] = code + body
+    x = 0
+    for v in rom[0x134:0x14D]:
+        x = (x - v - 1) & 0xFF
+    rom[0x14D] = x
+    g = sum(rom) & 0xFFFF
+    rom[0x14E], rom[0x14F] = g >> 8, g & 0xFF
+    path.write_bytes(bytes(rom))
+    return path
+
+
+def test_flat_colour_test_rom_reports_screen_colours(tmp_path, out_root):
+    rom = _blink_rom(tmp_path / "blinktest.gb")
+    steps = [{"buttons": [], "frames": 30}, {"buttons": ["right"], "frames": 30}, {"buttons": [], "frames": 30}]
+    r = env(call_tool(play_game, {"rom": str(rom), "platform": "gb", "steps": steps,
+                                  "read_memory": [{"region": "work_ram", "address": "0xC000", "length": 1}]},
+                      output_root=out_root))
+    assert r["status"] == "ok", r  # flat screens on purpose, but input works: not a failed play-test
+    d = r["data"]
+    s1, s2, s3 = d["steps"]
+    assert s1["dominant_color"] == "#000000" and s1["dominant_pct"] == 100.0 and s1["unique_colors"] == 1
+    lum = sum(int(s2["dominant_color"][i:i + 2], 16) for i in (1, 3, 5))
+    assert lum > 700 and s2["blank"]  # near-white while Right is held
+    assert s2["no_button_dominant_color"] == "#000000" and s2["input_effect_pixels"] == 160 * 144
+    assert s3["dominant_color"] == "#000000" and s3["no_button_dominant_color"] is None
+    assert d["memory"][0]["hex"].lower() == "a5"
+    assert s2["dominant_color"] in r["summary"] and "#000000" in r["summary"]
+    with Image.open(out_path(r, "play.gif")) as im:
+        assert im.n_frames >= 2 and im.size == (160, 144)

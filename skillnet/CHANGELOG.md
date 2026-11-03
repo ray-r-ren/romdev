@@ -1,3 +1,7 @@
+## v2
+- Building real ROMs and play-testing them in the emulator are now fully checked, including Game Boy Color builds and spotting a D-pad direction that doesn't work.
+- Play-tests now say what the screen looks like at every step (its main colour, with and without the buttons held), so flat-colour test ROMs and "what does it show while I hold Right" questions get a direct answer.
+
 ## v1
 - Start a game from 40 working examples for NES, Game Boy, Game Boy Color and Genesis/Mega Drive: platformer, shoot-'em-up, puzzle, sports and racing games, plus sprite, scrolling and music demos.
 - Read each console's design guide (hardware limits, how drawing works, fixes for a blank screen).

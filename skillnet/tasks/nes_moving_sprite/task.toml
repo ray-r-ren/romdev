@@ -13,7 +13,7 @@ name = "SkillNet Agent"
 [metadata]
 [metadata.skillnet]
 skill = "retro-game-forge"
-version = 1
+version = 2
 task = "nes_moving_sprite"
 ability = "Play-test in an emulator"
 core = true

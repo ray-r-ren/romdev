@@ -28,4 +28,7 @@ smoke:
     romdev-toolchain-rgbds romdev-toolchain-m68k-gcc; do test -f
     /opt/romdev/node_modules/$p/package.json || exit 1; done
   - python -c "import PIL, numpy; print(PIL.__version__, numpy.__version__)"
-  - sh -c 'PORT=7399 /opt/node24/bin/node /opt/romdev/node_modules/romdevtools/src/mcp/server.js & P=$!; sleep 8; curl -fsS http://127.0.0.1:7399/openapi.json | grep -q build; R=$?; kill $P 2>/dev/null; exit $R'
+  - sh -c 'PORT=7399 /opt/node24/bin/node
+    /opt/romdev/node_modules/romdevtools/src/mcp/server.js & P=$!; sleep 8; curl
+    -fsS http://127.0.0.1:7399/openapi.json | grep -q build; R=$?; kill $P
+    2>/dev/null; exit $R'

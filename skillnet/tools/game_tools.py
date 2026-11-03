@@ -788,6 +788,10 @@ class StepResult(ToolOutput):
     input_effect_end_pixels: int | None = Field(default=None, description="The difference on the step's last frame only. Much smaller than input_effect_pixels means the effect was undone (e.g. the player moved, then died and respawned).")
     effect_region: list[int] | None = Field(description="[x, y, w, h] box around the pixels the input changed, at input_effect_at_frame.")
     blank: bool
+    dominant_color: str = Field(description="Most common colour (#rrggbb) on the step's last frame: what the screen mostly looks like.")
+    dominant_pct: float = Field(description="Share of the screen (%) in dominant_color; 100 means one flat colour.")
+    unique_colors: int = Field(description="Distinct colours on the step's last frame.")
+    no_button_dominant_color: str | None = Field(default=None, description="For button steps: the most common colour the same last frame shows with no buttons held, to compare with dominant_color.")
 
 
 class MemResult(ToolOutput):
@@ -842,7 +846,7 @@ def _parse_addr(v: int | str) -> int:
       examples=[{"arguments": {"steps": [{"buttons": [], "frames": 90}, {"buttons": ["a"], "frames": 10},
                                          {"buttons": ["right"], "frames": 90}, {"buttons": ["right", "a"], "frames": 30}]}}])
 def play_game(args: PlayIn, ctx: ToolContext) -> ToolResult[PlayOut]:
-    """Use to check a game actually plays, after build_and_run_game (pass its state_id) or on an uploaded NES/Game Boy/Genesis ROM: runs a button script in the emulator (e.g. hold Right 60 frames, press A), screenshots each step and makes an animated GIF. For every button step it replays the same frames with no buttons and reports how many pixels the input changed, so you can tell whether the controls work. Can read work-RAM bytes at the end."""
+    """Use to check a game actually plays, after build_and_run_game (pass its state_id) or on an uploaded NES/Game Boy/Genesis ROM: runs a button script in the emulator (e.g. hold Right 60 frames, press A), screenshots each step and makes an animated GIF. For every button step it replays the same frames with no buttons and reports how many pixels the input changed, so you can tell whether the controls work, and each step's main screen colour (with and without the buttons). Can read work-RAM bytes at the end."""
     uncertain: list[str] = []
     if args.rom is not None:
         rom_path = Path(args.rom)
@@ -942,6 +946,8 @@ def play_game(args: PlayIn, ctx: ToolContext) -> ToolResult[PlayOut]:
             shutil.copy2(last_shot, shot_out)
             cur = rd.load_rgb(last_shot)
             end_effect = rd.changed_pixels(ctrl_frames[-1], cur) if ctrl_frames else None
+            vd = rd.rendering_verdict(cur)
+            ctrl_vd = rd.rendering_verdict(ctrl_frames[-1]) if ctrl_frames else None
             results.append(StepResult(
                 index=idx, buttons=list(st.buttons), frames=st.frames, screenshot=shot_name,
                 changed_pixels=rd.changed_pixels(prev, cur),
@@ -949,7 +955,9 @@ def play_game(args: PlayIn, ctx: ToolContext) -> ToolResult[PlayOut]:
                 input_effect_at_frame=best[1] if ctrl_frames and best[0] > 0 else None,
                 input_effect_end_pixels=end_effect,
                 effect_region=best[2] if ctrl_frames else None,
-                blank=rd.rendering_verdict(cur)["blank"]))
+                blank=vd["blank"], dominant_color=vd["dominant_color"], dominant_pct=vd["dominant_pct"],
+                unique_colors=vd["unique_colors"],
+                no_button_dominant_color=ctrl_vd["dominant_color"] if ctrl_vd else None))
             prev = cur
         eng.call("input", {"op": "set", "ports": [{}]})
         for m in args.read_memory:
@@ -985,8 +993,10 @@ def play_game(args: PlayIn, ctx: ToolContext) -> ToolResult[PlayOut]:
     elif not resp:
         uncertain.append("No button step changed the picture compared with not pressing it")
     if final["blank"]:
-        uncertain.append("The final screen is a single flat colour")
-        status = "partial"
+        uncertain.append(f"The final screen is a single flat colour ({final['dominant_color']})")
+        # A flat screen is only a failed play-test when nothing was ever drawn and no input changed anything.
+        if all(r.blank for r in results) and not resp:
+            status = "partial"
     undone = [r.index for r in btn_steps if r.index in responsive and (r.input_effect_end_pixels or 0) * 4 < (r.input_effect_pixels or 0)]
     if undone:
         uncertain.append(f"In steps {', '.join(map(str, undone))} the input changed the picture mid-step but the last frame "
@@ -1002,6 +1012,9 @@ def play_game(args: PlayIn, ctx: ToolContext) -> ToolResult[PlayOut]:
     summary = (f"Played {rom_name} for {total} frames in {len(results)} steps; "
                + ("input changed the picture in steps " + ", ".join(map(str, responsive)) if responsive
                   else "no button input changed the picture" if btn_steps else "no buttons pressed"))
+    if len(results) <= 8:
+        summary += "; main screen colour per step: " + ", ".join(
+            f"{r.index} {r.dominant_color}" + (" (flat)" if r.blank else "") for r in results)
     return ToolResult(
         data=PlayOut(platform=platform, rom=rom_name, total_frames=total, responsive_to_input=resp,
                      responsive_steps=responsive, steps=results, final_rendering=Rendering(**final), gif_frames=n_gif, memory=mem),
@@ -1009,7 +1022,8 @@ def play_game(args: PlayIn, ctx: ToolContext) -> ToolResult[PlayOut]:
         status=status,  # type: ignore[arg-type]
         outputs=outputs,
         uncertain=uncertain,
-        next_step=("Look at the step screenshots/GIF to confirm the right thing moved (effect_region shows where). "
+        next_step=("Look at the step screenshots/GIF to confirm the right thing moved (effect_region shows where); "
+                   "describe each step's screen from its dominant_color/unique_colors (button steps also give no_button_dominant_color). "
                    if resp else "If the game sits on a title screen, add a start or a press first; otherwise check the "
                    "input code (read_platform_guide troubleshooting). ")
         + "Then give the user the ROM, screenshots/GIF and project zip.",

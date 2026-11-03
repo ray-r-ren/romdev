@@ -4,8 +4,8 @@ artifacts = ["/task/outputs", "/task/answer.txt"]
 
 [task]
 name = "skillnet/retro-game-forge-gb_racing_turbolane"
-description = "Retro Game Forge — Start from a working example game: I'd like a simple top-down racing game for the original Game Boy called TURBOLANE, where I steer my car with the D-pad."
-keywords = ["skillnet", "retro-game-forge", "start-from-a-working-example-game"]
+description = "Retro Game Forge — Start from a working example: I'd like a simple top-down racing game for the original Game Boy called TURBOLANE, where I steer my car with the D-pad."
+keywords = ["skillnet", "retro-game-forge", "start-from-a-working-example"]
 
 [[task.authors]]
 name = "SkillNet Agent"
@@ -13,9 +13,9 @@ name = "SkillNet Agent"
 [metadata]
 [metadata.skillnet]
 skill = "retro-game-forge"
-version = 1
+version = 2
 task = "gb_racing_turbolane"
-ability = "Start from a working example game"
+ability = "Start from a working example"
 core = true
 source = "builder"
 judge = "programmatic"

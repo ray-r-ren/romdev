@@ -13,7 +13,7 @@ name = "SkillNet Agent"
 [metadata]
 [metadata.skillnet]
 skill = "retro-game-forge"
-version = 1
+version = 2
 task = "fix_broken_build"
 ability = "Build a real ROM"
 core = true

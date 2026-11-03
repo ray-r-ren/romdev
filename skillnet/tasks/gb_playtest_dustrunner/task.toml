@@ -1,0 +1,46 @@
+schema_version = "1.4"
+source = "skillnet"
+artifacts = ["/task/outputs", "/task/answer.txt"]
+
+[task]
+name = "skillnet/retro-game-forge-gb_playtest_dustrunner"
+description = "Retro Game Forge — Play-test in an emulator: Here's the ROM of my Game Boy runner game, DUSTRUNNER. One of my testers says one of the D-pad directions doesn't move the runner at all, but I can't tell which"
+keywords = ["skillnet", "retro-game-forge", "play-test-in-an-emulator"]
+
+[[task.authors]]
+name = "SkillNet Agent"
+
+[metadata]
+[metadata.skillnet]
+skill = "retro-game-forge"
+version = 2
+task = "gb_playtest_dustrunner"
+ability = "Play-test in an emulator"
+core = true
+source = "builder"
+judge = "programmatic"
+prompt = "Here's the ROM of my Game Boy runner game, DUSTRUNNER. One of my testers says one of the D-pad directions doesn't move the runner at all, but I can't tell which from their message.\n\nPlease play-test it in an emulator and tell me whether pressing Left and pressing Right each move the player. Save an animated GIF of your play-test so I can watch it.\n\nEnd your reply with one line in exactly this form (yes = pressing it moves the player, no = it doesn't):\n\nRESULT: LEFT=yes RIGHT=yes"
+
+[agent]
+timeout_sec = 900
+user = "agent"
+
+[verifier]
+timeout_sec = 600
+environment_mode = "separate"
+
+[environment]
+build_timeout_sec = 1800
+cpus = 2
+memory_mb = 4096
+workdir = "/task"
+network_mode = "allowlist"
+allowed_hosts = ["skillnet.sh"]
+
+[[environment.mcp_servers]]
+name = "skillnet"
+transport = "streamable-http"
+url = "https://skillnet.sh/mcp"
+
+[environment.mcp_servers.headers]
+Authorization = "Bearer ${SKILLNET_API_KEY}"

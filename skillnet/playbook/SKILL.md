@@ -93,6 +93,9 @@ directly. To check an existing homebrew ROM, pass it to `play_game(rom=…)`.
 - "The controls work": `play_game` `responsive_to_input`, the button steps' `input_effect_pixels` (pixels
   that differ from the same frames with no buttons) and `effect_region`, with the step PNGs / `play.gif`.
   Say which step shows which action ("step 4, Right held 60 frames: the player moved right, region x 24–60").
+- "What the screen looks like": each step's `dominant_color` / `dominant_pct` / `unique_colors` (last
+  frame), and for button steps `no_button_dominant_color` (the same frame with nothing held). Quote these
+  for "what does it show while X is held vs. nothing pressed" ("Right held: flat #fffbff; idle: flat #000000").
 - Values: `memory[].hex` for variables you read; quote the address and what it holds.
 - Report anything in `uncertain` to the user as-is; don't claim a feature works if no step showed it.
 
