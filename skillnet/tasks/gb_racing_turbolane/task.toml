@@ -1,0 +1,46 @@
+schema_version = "1.4"
+source = "skillnet"
+artifacts = ["/task/outputs", "/task/answer.txt"]
+
+[task]
+name = "skillnet/retro-game-forge-gb_racing_turbolane"
+description = "Retro Game Forge — Start from a working example game: I'd like a simple top-down racing game for the original Game Boy called TURBOLANE, where I steer my car with the D-pad."
+keywords = ["skillnet", "retro-game-forge", "start-from-a-working-example-game"]
+
+[[task.authors]]
+name = "SkillNet Agent"
+
+[metadata]
+[metadata.skillnet]
+skill = "retro-game-forge"
+version = 1
+task = "gb_racing_turbolane"
+ability = "Start from a working example game"
+core = true
+source = "builder"
+judge = "programmatic"
+prompt = "I'd like a simple top-down racing game for the original Game Boy called TURBOLANE, where I steer my car with the D-pad.\n\nPlease give me the `.gb` ROM file. The cartridge header must carry the name TURBOLANE, because that's what my flash cart's menu shows."
+
+[agent]
+timeout_sec = 900
+user = "agent"
+
+[verifier]
+timeout_sec = 600
+environment_mode = "separate"
+
+[environment]
+build_timeout_sec = 1800
+cpus = 2
+memory_mb = 4096
+workdir = "/task"
+network_mode = "allowlist"
+allowed_hosts = ["skillnet.sh"]
+
+[[environment.mcp_servers]]
+name = "skillnet"
+transport = "streamable-http"
+url = "https://skillnet.sh/mcp"
+
+[environment.mcp_servers.headers]
+Authorization = "Bearer ${SKILLNET_API_KEY}"

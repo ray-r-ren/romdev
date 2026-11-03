@@ -1,0 +1,807 @@
+cost:
+  typical_seconds: 15
+name: Retro Game Forge
+slug: retro-game-forge
+tools:
+  - kind: create
+    name: build_and_run_game
+    title: Build the ROM and run it
+    timeout_s: 600
+    description: Use after start_game_project or edit_game_files to compile the project with the console's real toolchain (cc65 for NES, SDCC/RGBDS for Game Boy, SGDK gcc for Genesis), check the ROM header and checksums, boot it in the emulator for some frames and screenshot it. Returns the .nes/.gb/.gbc/.md ROM, the screenshot, whether the screen is rendering, and compiler errors with file:line when the build fails (fix them with edit_game_files, then call again). Pass the state_id; returns a new one for play_game.
+    input_schema:
+      type: object
+      properties:
+        frames:
+          type: integer
+          default: 180
+          maximum: 3600
+          minimum: 1
+          description: Frames to run the ROM before the screenshot (60 = one second).
+        platform:
+          enum:
+            - nes
+            - gb
+            - gbc
+            - genesis
+          type: string
+          description: "Only with a project_zip from elsewhere: its console."
+        state_id:
+          type: string
+          description: "Continue from an earlier call's work: pass the state_id its result gave. Omit to start fresh."
+        project_zip:
+          type: string
+          format: skillnet-file
+          x-accept:
+            - .zip
+          description: A project .zip to build instead of the state_id's project (e.g. one the user kept).
+      additionalProperties: false
+    long_running: true
+    output_schema:
+      type: object
+      required:
+        - built
+        - platform
+        - rom
+        - rom_bytes
+        - rom_layout
+        - header_ok
+        - header
+        - frames_run
+        - rendering
+        - engine_rendering_check
+        - errors
+        - warnings
+      properties:
+        rom:
+          anyOf:
+            - type: string
+            - type: "null"
+        built:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+              - file
+              - line
+              - severity
+              - message
+            properties:
+              col:
+                type: integer
+              file:
+                anyOf:
+                  - type: string
+                  - type: "null"
+              line:
+                anyOf:
+                  - type: integer
+                  - type: "null"
+              stage:
+                type: string
+              message:
+                type: string
+              severity:
+                type: string
+            additionalProperties: false
+        header:
+          anyOf:
+            - type: object
+            - type: "null"
+        platform:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: object
+            required:
+              - file
+              - line
+              - severity
+              - message
+            properties:
+              col:
+                type: integer
+              file:
+                anyOf:
+                  - type: string
+                  - type: "null"
+              line:
+                anyOf:
+                  - type: integer
+                  - type: "null"
+              stage:
+                type: string
+              message:
+                type: string
+              severity:
+                type: string
+            additionalProperties: false
+        header_ok:
+          anyOf:
+            - type: boolean
+            - type: "null"
+        rendering:
+          anyOf:
+            - type: object
+              required:
+                - blank
+                - unique_colors
+                - dominant_color
+                - dominant_pct
+                - non_dominant_pixels
+                - width
+                - height
+              properties:
+                blank:
+                  type: boolean
+                  description: True when the picture is a single flat colour (nothing drawn).
+                width:
+                  type: integer
+                height:
+                  type: integer
+                dominant_pct:
+                  type: number
+                unique_colors:
+                  type: integer
+                dominant_color:
+                  type: string
+                non_dominant_pixels:
+                  type: integer
+              additionalProperties: false
+            - type: "null"
+        rom_bytes:
+          anyOf:
+            - type: integer
+            - type: "null"
+        frames_run:
+          anyOf:
+            - type: integer
+            - type: "null"
+        rom_layout:
+          anyOf:
+            - type: string
+            - type: "null"
+        engine_rendering_check:
+          anyOf:
+            - type: string
+            - type: "null"
+      additionalProperties: false
+    state_version: 1
+  - kind: edit
+    name: edit_game_files
+    title: Edit, read or search game source files
+    timeout_s: 60
+    description: "Use to change or inspect the game after start_game_project: write whole files, apply exact find/replace edits, delete files, read line ranges back (with line numbers) and search the sources for a name. Paths stay inside the project. Pass the state_id from the previous call; edits return a new state_id to pass on. Then rebuild with build_and_run_game."
+    input_schema:
+      type: object
+      properties:
+        read:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+            properties:
+              path:
+                type: string
+                description: Project-relative path to read.
+              line_count:
+                type: integer
+                default: 200
+                maximum: 400
+                minimum: 1
+                description: How many lines to return (max 400).
+              start_line:
+                type: integer
+                default: 1
+                minimum: 1
+                description: First line to return (1-based).
+            additionalProperties: false
+          maxItems: 6
+          description: Files (line ranges) to read back after the edits, with line numbers.
+        search:
+          type: array
+          items:
+            type: string
+          maxItems: 12
+          description: Plain-text strings to find in the project's source files; returns file:line matches (to locate code in long files).
+        writes:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - content
+            properties:
+              path:
+                type: string
+                description: Project-relative path, e.g. 'main.c' or 'level.h'.
+              content:
+                type: string
+                description: The whole new file content.
+            additionalProperties: false
+          maxItems: 20
+          description: Files to create or overwrite whole.
+        deletes:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+          description: Project-relative files to delete.
+        state_id:
+          type: string
+          description: "Continue from an earlier call's work: pass the state_id its result gave. Omit to start fresh."
+        replacements:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - find
+              - replace
+            properties:
+              all:
+                type: boolean
+                default: false
+                description: Replace every occurrence; by default the text must occur exactly once.
+              find:
+                type: string
+                minLength: 1
+                description: Exact text to find (copy it from a read; whitespace matters).
+              path:
+                type: string
+                description: Project-relative path of the file to change.
+              replace:
+                type: string
+                description: Text to put in its place.
+            additionalProperties: false
+          maxItems: 50
+          description: Exact find/replace edits, applied in order after writes.
+      additionalProperties: false
+    long_running: false
+    output_schema:
+      type: object
+      required:
+        - platform
+        - written
+        - deleted
+        - replacements
+        - not_applied
+        - reads
+        - search_hits
+        - files
+      properties:
+        files:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - bytes
+            properties:
+              path:
+                type: string
+              bytes:
+                type: integer
+            additionalProperties: false
+        reads:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - start_line
+              - end_line
+              - total_lines
+              - text
+              - truncated
+            properties:
+              path:
+                type: string
+              text:
+                type: string
+              end_line:
+                type: integer
+              truncated:
+                type: boolean
+              start_line:
+                type: integer
+              total_lines:
+                type: integer
+            additionalProperties: false
+        deleted:
+          type: array
+          items:
+            type: string
+        written:
+          type: array
+          items:
+            type: string
+        platform:
+          type: string
+        not_applied:
+          type: integer
+        search_hits:
+          type: array
+          items:
+            type: object
+            required:
+              - term
+              - file
+              - line
+              - text
+            properties:
+              file:
+                type: string
+              line:
+                type: integer
+              term:
+                type: string
+              text:
+                type: string
+            additionalProperties: false
+        replacements:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - find
+              - applied
+              - problem
+            properties:
+              find:
+                type: string
+              path:
+                type: string
+              applied:
+                type: integer
+              problem:
+                anyOf:
+                  - type: string
+                  - type: "null"
+            additionalProperties: false
+      additionalProperties: false
+    state_version: 1
+  - kind: inspect
+    name: list_game_examples
+    title: List example games for a console
+    timeout_s: 120
+    description: "Start here when the user describes a retro game they want (NES, Game Boy/Color, Genesis/Mega Drive): lists the bundled working example games (shmup, platformer, puzzle, sports, racing, plus music and sprite demos) with genre, players and what each shows, so you can fork the closest one with start_game_project. Also returns the design-guide names for read_platform_guide. Full mechanics/techniques per example are in the examples.json output."
+    input_schema:
+      type: object
+      properties:
+        platform:
+          enum:
+            - nes
+            - gb
+            - gbc
+            - genesis
+            - all
+          type: string
+          default: all
+          description: "Which console to list: nes = NES/Famicom; gb = Game Boy; gbc = Game Boy Color; genesis = Sega Genesis / Mega Drive; 'all' lists every one. 'Mega Drive' means genesis, 'Game Boy Color' means gbc."
+      additionalProperties: false
+    long_running: false
+    output_schema:
+      type: object
+      required:
+        - examples
+        - guides
+      properties:
+        guides:
+          type: array
+          items:
+            type: string
+          description: Guide names for read_platform_guide.
+        examples:
+          type: array
+          items:
+            type: object
+      additionalProperties: false
+  - kind: check
+    name: play_game
+    title: Play-test a ROM with button presses
+    timeout_s: 600
+    description: "Use to check a game actually plays, after build_and_run_game (pass its state_id) or on an uploaded NES/Game Boy/Genesis ROM: runs a button script in the emulator (e.g. hold Right 60 frames, press A), screenshots each step and makes an animated GIF. For every button step it replays the same frames with no buttons and reports how many pixels the input changed, so you can tell whether the controls work. Can read work-RAM bytes at the end."
+    input_schema:
+      type: object
+      properties:
+        gif:
+          type: boolean
+          default: true
+          description: Also make an animated GIF of the whole run.
+        rom:
+          type: string
+          format: skillnet-file
+          x-accept:
+            - .nes
+            - .gb
+            - .gbc
+            - .md
+            - .gen
+            - .bin
+          description: A ROM file to test instead of the project's last build (an NES, Game Boy/Color or Genesis homebrew ROM the user has). Omit to play the ROM build_and_run_game made for this state_id.
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              frames:
+                type: integer
+                default: 60
+                maximum: 1800
+                minimum: 1
+                description: How many frames to hold them (60 = one second).
+              buttons:
+                type: array
+                items:
+                  enum:
+                    - up
+                    - down
+                    - left
+                    - right
+                    - a
+                    - b
+                    - c
+                    - start
+                    - select
+                  type: string
+                maxItems: 6
+                description: "Buttons held for the whole step (empty = hands off). NES/Game Boy: up down left right a b start select. Genesis: up down left right a b c start."
+            additionalProperties: false
+          maxItems: 40
+          minItems: 1
+          description: "The button script, run in order. Default: idle 120 frames, Start 10, idle 30, Right 60, A 10. Most examples wait on a title screen: press start or a first."
+        player:
+          enum:
+            - 1
+            - 2
+          type: integer
+          default: 1
+          description: Which controller port the buttons go to (2 = second player).
+        platform:
+          enum:
+            - nes
+            - gb
+            - gbc
+            - genesis
+          type: string
+          description: Console of an uploaded rom, only if it can't be detected (e.g. a .bin).
+        state_id:
+          type: string
+          description: "Continue from an earlier call's work: pass the state_id its result gave. Omit to start fresh."
+        read_memory:
+          type: array
+          items:
+            type: object
+            required:
+              - address
+            properties:
+              length:
+                type: integer
+                default: 1
+                maximum: 256
+                minimum: 1
+                description: Bytes to read (1-256).
+              region:
+                enum:
+                  - work_ram
+                  - video_ram
+                  - sprites
+                  - palette
+                  - save_ram
+                type: string
+                default: work_ram
+                description: "Which memory: work_ram (game variables, default); video_ram (NES nametables, Game Boy VRAM, Genesis VRAM); sprites (sprite table/OAM: NES 64 x [y, tile, attr, x], Game Boy 40 x [y, x, tile, flags]…"
+              address:
+                anyOf:
+                  - type: integer
+                  - type: string
+                description: "For work_ram: the address as the CPU sees it, number or hex string: NES $0000-$07FF, Game Boy $C000-$DFFF, Genesis $FF0000-$FFFFFF (e.g. '0xC0A0'). For other regions: the byte offset inside that…"
+            additionalProperties: false
+          maxItems: 8
+          description: Optional work-RAM bytes to read after the last step (e.g. a score or player X you located in the source).
+      additionalProperties: false
+    long_running: true
+    output_schema:
+      type: object
+      required:
+        - platform
+        - rom
+        - total_frames
+        - responsive_to_input
+        - responsive_steps
+        - steps
+        - final_rendering
+        - gif_frames
+        - memory
+      properties:
+        rom:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            required:
+              - index
+              - buttons
+              - frames
+              - screenshot
+              - changed_pixels
+              - input_effect_pixels
+              - effect_region
+              - blank
+            properties:
+              blank:
+                type: boolean
+              index:
+                type: integer
+              frames:
+                type: integer
+              buttons:
+                type: array
+                items:
+                  type: string
+              screenshot:
+                type: string
+              effect_region:
+                anyOf:
+                  - type: array
+                    items:
+                      type: integer
+                  - type: "null"
+                description: "[x, y, w, h] box around the pixels the input changed, at input_effect_at_frame."
+              changed_pixels:
+                type: integer
+                description: Pixels that differ from the end of the previous step.
+              input_effect_pixels:
+                anyOf:
+                  - type: integer
+                  - type: "null"
+                description: Most pixels that differed, at any sampled point of the step, from the same frames run with no buttons held (null for idle steps). >0 means this input changed the picture.
+              input_effect_at_frame:
+                type: integer
+                description: Frames into the step where that biggest difference was seen.
+              input_effect_end_pixels:
+                type: integer
+                description: The difference on the step's last frame only. Much smaller than input_effect_pixels means the effect was undone (e.g. the player moved, then died and respawned).
+            additionalProperties: false
+        memory:
+          type: array
+          items:
+            type: object
+            required:
+              - region
+              - address
+              - hex
+            properties:
+              hex:
+                type: string
+              region:
+                type: string
+              address:
+                type: string
+            additionalProperties: false
+        platform:
+          type: string
+        gif_frames:
+          type: integer
+        total_frames:
+          type: integer
+        final_rendering:
+          type: object
+          required:
+            - blank
+            - unique_colors
+            - dominant_color
+            - dominant_pct
+            - non_dominant_pixels
+            - width
+            - height
+          properties:
+            blank:
+              type: boolean
+              description: True when the picture is a single flat colour (nothing drawn).
+            width:
+              type: integer
+            height:
+              type: integer
+            dominant_pct:
+              type: number
+            unique_colors:
+              type: integer
+            dominant_color:
+              type: string
+            non_dominant_pixels:
+              type: integer
+          additionalProperties: false
+        responsive_steps:
+          type: array
+          items:
+            type: integer
+        responsive_to_input:
+          anyOf:
+            - type: boolean
+            - type: "null"
+          description: True when at least one button step changed the picture compared with not pressing it.
+      additionalProperties: false
+    state_version: 1
+  - kind: inspect
+    name: read_platform_guide
+    title: Read a console's design guide
+    timeout_s: 30
+    description: "Use before writing or fixing game code for a console, or when a build shows a blank/garbled screen: returns the console's design guide ('mental-model': hardware limits, sprite/tile rules, the runtime API; 'troubleshooting': renders-nothing traps and fixes). Pages long guides with offset; the whole guide is also returned as a .md file. Mentions of engine commands in the text (frame, memory, build...) map to this skill's build_and_run_game and play_game."
+    input_schema:
+      type: object
+      required:
+        - platform
+      properties:
+        name:
+          type: string
+          default: mental-model
+          description: "Which guide: 'mental-model' (how the hardware works, limits, the APIs the examples use), 'troubleshooting' (blank screen, garbled sprites, crashes, input not working), 'upstream-sources' (where the…"
+        offset:
+          type: integer
+          default: 0
+          minimum: 0
+          description: Character offset to start reading from (to page through a long guide).
+        platform:
+          enum:
+            - nes
+            - gb
+            - gbc
+            - genesis
+          type: string
+          description: "Console: nes = NES/Famicom; gb = Game Boy; gbc = Game Boy Color; genesis = Sega Genesis / Mega Drive."
+        max_chars:
+          type: integer
+          default: 12000
+          maximum: 14000
+          minimum: 500
+          description: How many characters to return inline (500-14000).
+      additionalProperties: false
+    long_running: false
+    output_schema:
+      type: object
+      required:
+        - platform
+        - name
+        - text
+        - offset
+        - total_chars
+        - truncated
+        - next_offset
+      properties:
+        name:
+          type: string
+        text:
+          type: string
+        offset:
+          type: integer
+        platform:
+          type: string
+        truncated:
+          type: boolean
+        next_offset:
+          anyOf:
+            - type: integer
+            - type: "null"
+        total_chars:
+          type: integer
+      additionalProperties: false
+  - kind: create
+    name: start_game_project
+    title: Start a game project from an example
+    timeout_s: 120
+    description: "After picking an example with list_game_examples: copies that working game into a new editable project (it builds and runs before you change anything), or resumes a project .zip from an earlier run. Returns a state_id: pass it to edit_game_files, build_and_run_game and play_game. Also returns the project as a .zip to keep."
+    input_schema:
+      type: object
+      properties:
+        name:
+          type: string
+          default: mygame
+          pattern: ^[A-Za-z][A-Za-z0-9_]{0,23}$
+          description: Your game's name (letters, digits, underscore; starts with a letter; up to 24). Names the ROM and replaces the example's title where the example shows one.
+        example:
+          type: string
+          description: Example id from list_game_examples, e.g. 'nes/platformer', 'gb/puzzle', 'genesis/shmup'. Leave empty when resuming from project_zip.
+        platform:
+          enum:
+            - nes
+            - gb
+            - gbc
+            - genesis
+          type: string
+          description: "Only with project_zip, if the zip came from elsewhere: which console it targets."
+        state_id:
+          type: string
+          description: "Continue from an earlier call's work: pass the state_id its result gave. Omit to start fresh."
+        project_zip:
+          type: string
+          format: skillnet-file
+          x-accept:
+            - .zip
+          description: "Instead of an example: a project .zip from an earlier start_game_project / build_and_run_game result (or one the user kept), to continue that game."
+      additionalProperties: false
+    long_running: false
+    output_schema:
+      type: object
+      required:
+        - platform
+        - name
+        - example
+        - main_source
+        - files
+        - vendor_file_count
+      properties:
+        name:
+          type: string
+        files:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - bytes
+            properties:
+              path:
+                type: string
+              bytes:
+                type: integer
+            additionalProperties: false
+          description: Your editable files (library/vendor folders not listed).
+        example:
+          anyOf:
+            - type: string
+            - type: "null"
+        platform:
+          type: string
+        main_source:
+          anyOf:
+            - type: string
+            - type: "null"
+          description: The file holding the game loop; read it before editing.
+        vendor_file_count:
+          type: integer
+      additionalProperties: false
+    state_version: 1
+egress: []
+source:
+  kind: import
+  repo: https://github.com/ray-r-ren/romdev
+  author: ray-r-ren
+  commit: b2ba24481529ba5f80ef0522e593385672bf6fdd
+  license: MIT
+cant_do:
+  - Consoles other than NES, Game Boy/Color and Genesis (SNES, GBA, Atari, C64, N64, PlayStation… are not installed)
+  - Reverse engineering, disassembly, decompilation or static recompilation of existing ROMs
+  - Hacking or patching commercial ROMs; it only builds your own games
+  - "Live human play in a window: play-testing is scripted button presses with screenshots"
+  - Making original pixel art or music from scratch; the agent writes graphics/notes in code
+  - Build a real ROM
+  - Play-test in an emulator
+engines: []
+workers: []
+category: creative-media
+datasets: []
+resources:
+  cpu: 2
+  gpu: null
+  timeout_s: 600
+  memory_mib: 4096
+  max_input_mb: 200
+agent_side: []
+superpower: Describe a game. Get a playable NES, Game Boy or Genesis ROM, built and played in an emulator.
+credentials: []
+sdk_version: 0.3.0
+tools_package: tools
+example_prompts:
+  - Make me a tiny NES game where a little ship dodges falling rocks
+  - Build a Game Boy puzzle game like a simple sliding-tile puzzle and show me it running
+  - Start from the Genesis platformer example, make the hero jump higher, and give me the ROM
+  - My NES game won't compile, fix it and play-test it holding right for 3 seconds
+  - Give me a Game Boy ROM of a two-player pong game I can load on my flash cart
+manifest_version: 1

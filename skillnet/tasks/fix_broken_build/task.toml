@@ -1,0 +1,46 @@
+schema_version = "1.4"
+source = "skillnet"
+artifacts = ["/task/outputs", "/task/answer.txt"]
+
+[task]
+name = "skillnet/retro-game-forge-fix_broken_build"
+description = "Retro Game Forge — Build a real ROM: My NES platformer project stopped compiling after my last round of edits: I turned the sky green and added a \"hold B to run\" tweak to the player code. The proje"
+keywords = ["skillnet", "retro-game-forge", "build-a-real-rom"]
+
+[[task.authors]]
+name = "SkillNet Agent"
+
+[metadata]
+[metadata.skillnet]
+skill = "retro-game-forge"
+version = 1
+task = "fix_broken_build"
+ability = "Build a real ROM"
+core = true
+source = "builder"
+judge = "programmatic"
+prompt = "My NES platformer project stopped compiling after my last round of edits: I turned the sky green and added a \"hold B to run\" tweak to the player code. The project zip is attached.\n\nPlease fix whatever is broken without undoing my green sky, and give me the working `.nes` ROM."
+
+[agent]
+timeout_sec = 900
+user = "agent"
+
+[verifier]
+timeout_sec = 600
+environment_mode = "separate"
+
+[environment]
+build_timeout_sec = 1800
+cpus = 2
+memory_mb = 4096
+workdir = "/task"
+network_mode = "allowlist"
+allowed_hosts = ["skillnet.sh"]
+
+[[environment.mcp_servers]]
+name = "skillnet"
+transport = "streamable-http"
+url = "https://skillnet.sh/mcp"
+
+[environment.mcp_servers.headers]
+Authorization = "Bearer ${SKILLNET_API_KEY}"

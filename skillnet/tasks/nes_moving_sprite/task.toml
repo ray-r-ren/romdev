@@ -1,0 +1,46 @@
+schema_version = "1.4"
+source = "skillnet"
+artifacts = ["/task/outputs", "/task/answer.txt"]
+
+[task]
+name = "skillnet/retro-game-forge-nes_moving_sprite"
+description = "Retro Game Forge — Play-test in an emulator: Make me a small NES game: a little ship (or any player sprite) that I can move around the screen with the D-pad, on a dark blue (navy) background."
+keywords = ["skillnet", "retro-game-forge", "play-test-in-an-emulator"]
+
+[[task.authors]]
+name = "SkillNet Agent"
+
+[metadata]
+[metadata.skillnet]
+skill = "retro-game-forge"
+version = 1
+task = "nes_moving_sprite"
+ability = "Play-test in an emulator"
+core = true
+source = "builder"
+judge = "programmatic"
+prompt = "Make me a small NES game: a little ship (or any player sprite) that I can move around the screen with the D-pad, on a dark blue (navy) background.\n\nI want the actual `.nes` ROM file so I can load it in my own emulator. Before you hand it over, play-test it and tell me whether the D-pad really moves the player."
+
+[agent]
+timeout_sec = 900
+user = "agent"
+
+[verifier]
+timeout_sec = 600
+environment_mode = "separate"
+
+[environment]
+build_timeout_sec = 1800
+cpus = 2
+memory_mb = 4096
+workdir = "/task"
+network_mode = "allowlist"
+allowed_hosts = ["skillnet.sh"]
+
+[[environment.mcp_servers]]
+name = "skillnet"
+transport = "streamable-http"
+url = "https://skillnet.sh/mcp"
+
+[environment.mcp_servers.headers]
+Authorization = "Bearer ${SKILLNET_API_KEY}"

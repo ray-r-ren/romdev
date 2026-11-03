@@ -1,0 +1,16 @@
+[
+  {
+    "title": "Genesis space shooter with a crimson nebula",
+    "kind": "image",
+    "input": "Make me a Sega Genesis space shoot-'em-up with a red background instead of blue space.",
+    "output": "genesis-crimson-shooter.gif",
+    "caption": "Forked the Genesis shooter example, recoloured the nebula palette, built the .md ROM and play-tested it: the clip is the emulator run with Up/Right and fire pressed on a script."
+  },
+  {
+    "title": "NES platformer on a navy sky",
+    "kind": "image",
+    "input": "Make a small NES game I can move around with the D-pad, on a dark blue background.",
+    "output": "nes-navy-platformer.gif",
+    "caption": "A real .nes ROM built with the cc65 toolchain; the play-test pressed A to start, then held Right and Left, and the picture changed with each input."
+  }
+]

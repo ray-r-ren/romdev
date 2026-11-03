@@ -1,0 +1,46 @@
+schema_version = "1.4"
+source = "skillnet"
+artifacts = ["/task/outputs", "/task/answer.txt"]
+
+[task]
+name = "skillnet/retro-game-forge-genesis_red_shooter"
+description = "Retro Game Forge — Edit game code: Make me a Sega Genesis (Mega Drive) space shoot-'em-up, but with a red background, like a crimson nebula, instead of the usual blue or purple space."
+keywords = ["skillnet", "retro-game-forge", "edit-game-code"]
+
+[[task.authors]]
+name = "SkillNet Agent"
+
+[metadata]
+[metadata.skillnet]
+skill = "retro-game-forge"
+version = 1
+task = "genesis_red_shooter"
+ability = "Edit game code"
+core = true
+source = "builder"
+judge = "programmatic"
+prompt = "Make me a Sega Genesis (Mega Drive) space shoot-'em-up, but with a red background, like a crimson nebula, instead of the usual blue or purple space.\n\nSend me the ROM file and confirm the ship still moves with the D-pad."
+
+[agent]
+timeout_sec = 900
+user = "agent"
+
+[verifier]
+timeout_sec = 600
+environment_mode = "separate"
+
+[environment]
+build_timeout_sec = 1800
+cpus = 2
+memory_mb = 4096
+workdir = "/task"
+network_mode = "allowlist"
+allowed_hosts = ["skillnet.sh"]
+
+[[environment.mcp_servers]]
+name = "skillnet"
+transport = "streamable-http"
+url = "https://skillnet.sh/mcp"
+
+[environment.mcp_servers.headers]
+Authorization = "Bearer ${SKILLNET_API_KEY}"
